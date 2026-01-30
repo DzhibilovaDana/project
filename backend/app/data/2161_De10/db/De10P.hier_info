@@ -1,0 +1,7 @@
+|De10P
+button0 => diod_R.DATAIN
+button1 => diod_G.DATAIN
+diod_R << button0.DB_MAX_OUTPUT_PORT_TYPE
+diod_G << button1.DB_MAX_OUTPUT_PORT_TYPE
+
+
