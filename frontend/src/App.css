@@ -760,3 +760,144 @@
   align-items: center;
   min-height: 40px;
 }
+
+/* === BoardMap styles (добавлено) === */
+.board-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 18px 0;
+}
+
+.board-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+/* колонки пинов */
+.pins-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 140px;
+  align-items: center;
+}
+
+.pins-left { order: 0; }
+.pins-right { order: 2; }
+
+/* визуальная плата */
+.board-visual {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  max-height: 420px;
+  position: relative;
+  order: 1;
+  padding: 6px;
+}
+
+.board-image-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+.board-image {
+  max-width: 520px;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+  object-fit: contain;
+  background: linear-gradient(180deg, #0b3b6f, #103b6f);
+}
+
+/* пины */
+.board-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.14s;
+  background: linear-gradient(180deg,#2f8e4b,#27ae60); /* default free = green */
+  color: #06320b;
+  box-shadow: 0 6px 10px rgba(39,174,96,0.12);
+}
+
+/* если пин имеет кастомный цвет (inline-style задаёт фон и цвет), это класс только для мелких эффектов */
+.board-pin.has-color {
+  border: 0;
+}
+
+/* выбранный пин (обводка) */
+.board-pin.selected {
+  transform: translateY(-4px);
+  outline: 3px solid rgba(255,202,40,0.22);
+}
+
+/* если пин свободен, используем спокойный стиль */
+.board-pin.free {
+  background: linear-gradient(180deg,#2f8e4b,#27ae60);
+  color: #06320b;
+}
+
+/* легенда */
+.board-legend {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  color: #fff;
+  font-size: 0.95em;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.legend-item {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background: rgba(0,0,0,0.08);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+}
+
+.legend-name {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+/* адаптив */
+@media (max-width: 880px) {
+  .pins-column { width: 100px; }
+  .board-image { max-width: 360px; }
+}
+@media (max-width: 560px) {
+  .board-inner { flex-direction: column; gap: 12px; }
+  .pins-column { flex-direction: row; flex-wrap: wrap; width: auto; justify-content:center; }
+  .board-visual { order: 2; }
+}

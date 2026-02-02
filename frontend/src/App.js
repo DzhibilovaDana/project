@@ -1,105 +1,58 @@
-import React, { useState, useEffect } from 'react';
+// frontend/src/App.js
+import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
-import de10Image from './de10-lite.jpg'; // Используем jpg
-import lampImg from './lamp.jpg';
-import semiImg from './semi.jpg';
-import servoImg from './servo.jpg';
+import BoardMap from './components/BoardMap';
+import PeripheralMenu from './components/PeripheralMenu';
 
-// Примерные данные периферий и их пинов (теперь из perif.csv)
+// Описание периферии с цветами (можно скорректировать цвета)
 const peripherals = [
-  {
-    name: 'Arduino MEGA',
-    pins: ['22', '24', '26', '28', '30', '32', '34', '36', '38', '40', '42', '44'],
-  },
-  {
-    name: 'LED-массив',
-    pins: ['led1', 'led2', 'led3', 'led4', 'led5', 'led6', 'led7', 'RGB1', 'RGB2', 'RGB3'],
-  },
-  {
-    name: 'Семисегментник',
-    pins: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'DP', 'DIG1', 'DIG2', 'DIG3', 'DIG4'],
-  },
-  {
-    name: 'Сервопривод',
-    pins: ['serv1'],
-  },
+  { name: 'Arduino MEGA', pins: ['22','24','26','28','30','32','34','36','38','40','42','44'], color: '#FF7043' }, // orange
+  { name: 'LED-массив', pins: ['led1','led2','led3','led4','led5','led6','led7','RGB1','RGB2','RGB3'], color: '#FFEB3B' }, // yellow
+  { name: 'Семисегментник', pins: ['A','B','C','D','E','F','G','DP','DIG1','DIG2','DIG3','DIG4'], color: '#4FC3F7' }, // light blue
+  { name: 'Сервопривод', pins: ['serv1'], color: '#A1887F' } // brown/steel
 ];
 
-// Пины DE10-Lite (разделение на левый и правый ряд, по 18 пинов)
 const de10PinsLeft = [
-  'V10', 'V9', 'V8', 'V7', 'W6', 'W5', 'AA14', 'W12', 'AB12', 'AB11', 'AB10', 'AA9', 'AA8', 'AA7', 'AA6', 'AA5', 'AB3', 'AB2'
+  'V10','V9','V8','V7','W6','W5','AA14','W12','AB12','AB11','AB10','AA9','AA8','AA7','AA6','AA5','AB3','AB2'
 ];
 const de10PinsRight = [
-  'W10', 'W9', 'W8', 'W7', 'V5', 'AA15', 'W13', 'AB13', 'Y11', 'W11', 'AA10', 'Y8', 'Y7', 'Y6', 'Y5', 'Y4', 'Y3', 'AA2'
+  'W10','W9','W8','W7','V5','AA15','W13','AB13','Y11','W11','AA10','Y8','Y7','Y6','Y5','Y4','Y3','AA2'
 ];
 
 function App() {
-  const [selectedPin, setSelectedPin] = useState(null);
-  const [connections, setConnections] = useState([]);
-  const [showSelector, setShowSelector] = useState(false);
-  const [showCodeModal, setShowCodeModal] = useState(false);
-  const [code, setCode] = useState('');
-  const [buttonStates, setButtonStates] = useState(
-    Array.from({ length: 12 }, (_, i) => ({ id: `but${i + 1}`, pressed: false }))
-  );
+  // State
+  const [connections, setConnections] = useState([]); // { peripheral, peripheralPin, de10Pin }
+  const [showPeripheralMenu, setShowPeripheralMenu] = useState(false);
+  const [selectedPeripheral, setSelectedPeripheral] = useState(null); // { peripheral, peripheralPin }
+  const [selectedDe10, setSelectedDe10] = useState(null);
+
+  const [buttonStates, setButtonStates] = useState(Array.from({ length: 12 }, (_, i) => ({ id: `but${i+1}`, pressed: false })));
+
+  // SOF upload / files
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState('');
-  const [saveStatus, setSaveStatus] = useState('');
   const [sofFiles, setSofFiles] = useState([]);
   const [selectedSof, setSelectedSof] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
 
-  const handlePinClick = (peripheralIdx, pinIdx) => {
-    const peripheral = peripherals[peripheralIdx].name;
-    const peripheralPin = peripherals[peripheralIdx].pins[pinIdx];
-    
-    // Проверяем, есть ли уже соединение для этого пина
-    const existingConnection = connections.find(
-      c => c.peripheral === peripheral && c.peripheralPin === peripheralPin
-    );
-    
-    // Если соединение существует, удаляем его
-    if (existingConnection) {
-      setConnections(prev => prev.filter(
-        c => !(c.peripheral === peripheral && c.peripheralPin === peripheralPin)
-      ));
-    } else {
-      // Если соединения нет, показываем селектор для выбора нового пина
-      setSelectedPin({ peripheralIdx, pinIdx });
-      setShowSelector(true);
-    }
-  };
+  // Peripheral color map for BoardMap legend
+  const peripheralColorMap = useMemo(() => {
+    const map = {};
+    peripherals.forEach(p => map[p.name] = p.color);
+    return map;
+  }, []);
 
-  const handleDe10PinSelect = (de10Pin) => {
-    const { peripheralIdx, pinIdx } = selectedPin;
-    const peripheral = peripherals[peripheralIdx].name;
-    const peripheralPin = peripherals[peripheralIdx].pins[pinIdx];
-    
-    // Добавляем новое соединение
-    setConnections((prev) => [
-      ...prev.filter(
-        (c) => !(c.peripheral === peripheral && c.peripheralPin === peripheralPin)
-      ),
-      { peripheral, peripheralPin, de10Pin },
-    ]);
-    setShowSelector(false);
-    setSelectedPin(null);
-  };
+  // pinColorMap: de10Pin -> color (derived from connections)
+  const pinColorMap = useMemo(() => {
+    const m = {};
+    connections.forEach(c => {
+      const p = peripherals.find(pp => pp.name === c.peripheral);
+      if (p && p.color) m[c.de10Pin] = p.color;
+    });
+    return m;
+  }, [connections]);
 
-  // Экспорт связей в JSON (только официальные имена)
-  const exportConnectionsJson = () => {
-    const connectionsArr = connections.map(({ de10Pin, peripheralPin }) => [de10Pin, peripheralPin]);
-    const jsonData = {
-      connections: connectionsArr
-    };
-    const json = JSON.stringify(jsonData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'connections.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // ---- backend calls and helpers (copied/adapted from original) ----
 
   const sendButtonState = async (buttonId, pressed) => {
     try {
@@ -126,322 +79,251 @@ function App() {
     );
   };
 
-  // Получить список занятых пинов DE10-lite
-  const usedDe10Pins = connections.map((c) => c.de10Pin);
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      console.log('Выбран файл:', file.name);
-      
-      // Проверяем расширение файла
-      if (!file.name.toLowerCase().endsWith('.sof')) {
-        console.log('Неверное расширение файла');
-        setUploadStatus('Ошибка: поддерживаются только файлы формата .sof');
-        return;
+  // File upload
+  const handleFileUpload = async (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
+    if (!file.name.toLowerCase().endsWith('.sof')) {
+      setUploadStatus('Ошибка: поддерживаются только файлы формата .sof');
+      return;
+    }
+    setUploadStatus('Загрузка...');
+    try {
+      const fm = new FormData();
+      fm.append('file', file);
+      const resp = await fetch('http://localhost:5050/api/pins/upload_sof', {
+        method: 'POST',
+        body: fm
+      });
+      const json = await resp.json();
+      if (resp.ok) {
+        setUploadStatus('Файл успешно загружен');
+        fetchSofFiles();
+      } else {
+        setUploadStatus('Ошибка загрузки: ' + (json.error || 'unknown'));
       }
-
-      setSelectedFile(file);
-      setUploadStatus('Загрузка...');
-
-      try {
-        // Создаем FormData для отправки файла
-        const formData = new FormData();
-        formData.append('file', file);
-        console.log('Отправка файла на сервер...');
-
-        // Отправляем файл на сервер
-        const response = await fetch('http://localhost:5050/api/pins/upload_sof', {
-          method: 'POST',
-          body: formData,
-        });
-
-        console.log('Ответ сервера:', response.status);
-        const result = await response.json();
-        console.log('Результат:', result);
-
-        if (response.ok) {
-          setUploadStatus('Файл успешно загружен');
-        } else {
-          throw new Error(result.error || 'Ошибка загрузки файла');
-        }
-      } catch (error) {
-        console.error('Ошибка при загрузке файла:', error);
-        setUploadStatus('Ошибка загрузки файла: ' + error.message);
-      }
+    } catch (e) {
+      setUploadStatus('Ошибка: ' + e.message);
     }
   };
 
   const fetchSofFiles = async () => {
     try {
-      const filesResp = await fetch('http://localhost:5050/api/pins/sof_files');
-      const filesData = await filesResp.json();
-      setSofFiles(filesData.files || []);
-    } catch (error) {
+      const resp = await fetch('http://localhost:5050/api/pins/sof_files');
+      const json = await resp.json();
+      setSofFiles(json.files || []);
+    } catch (e) {
       setSofFiles([]);
     }
   };
 
   useEffect(() => {
     fetchSofFiles();
-  }, [uploadStatus]); // обновлять список после загрузки
+    handleLoad();
+    // eslint-disable-next-line
+  }, []);
 
   const handleProgramDe10 = async () => {
     if (!selectedSof) return;
     setUploadStatus('Программирование...');
     try {
-      const response = await fetch('http://localhost:5050/api/pins/program_de10', {
+      const resp = await fetch('http://localhost:5050/api/pins/program_de10', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sof_path: selectedSof })
       });
-      const result = await response.json();
-      if (response.ok) {
-        setUploadStatus('Плата DE10 успешно прошита!');
-      } else {
-        setUploadStatus('Ошибка прошивки: ' + (result.error || 'Неизвестная ошибка'));
-      }
-    } catch (error) {
-      setUploadStatus('Ошибка при прошивке: ' + error.message);
+      const json = await resp.json();
+      if (resp.ok) setUploadStatus('Плата DE10 успешно прошита!');
+      else setUploadStatus('Ошибка прошивки: ' + (json.error || 'Неизвестная ошибка'));
+    } catch (e) {
+      setUploadStatus('Ошибка: ' + e.message);
     }
   };
 
-  // Сохранить соединения в JSON (только официальные имена)
+  // Save: POST config, GET verilog, POST program
   const handleSave = async () => {
     const connectionsArr = connections.map(({ de10Pin, peripheralPin }) => [de10Pin, peripheralPin]);
     try {
-      // 1. Сохранение конфигурации
       setSaveStatus('Сохранение конфигурации...');
-      console.log('Saving configuration:', connectionsArr);
-      const saveResponse = await fetch('http://localhost:5050/api/pins/config', {
+      const saveResp = await fetch('http://localhost:5050/api/pins/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connections: connectionsArr })
       });
-      if (!saveResponse.ok) {
-        throw new Error('Failed to save configuration');
-      }
-      console.log('Configuration saved successfully');
+      if (!saveResp.ok) throw new Error('Failed to save configuration');
 
-      // 2. Генерация Verilog
       setSaveStatus('Генерация Verilog...');
-      console.log('Generating Verilog...');
-      const verilogResponse = await fetch('http://localhost:5050/api/pins/verilog');
-      const verilogData = await verilogResponse.json();
-      if (verilogData.verilog_code) {
-        console.log('Generated Verilog code:', verilogData.verilog_code);
-      } else {
-        console.error('No Verilog code in response');
-      }
+      const verilogResp = await fetch('http://localhost:5050/api/pins/verilog');
+      const verilogData = await verilogResp.json();
+      console.log('verilog', verilogData.verilog_code);
 
-      // 3. Программирование FPGA
       setSaveStatus('Программирование FPGA...');
-      console.log('Programming FPGA...');
-      const programResponse = await fetch('http://localhost:5050/api/pins/program', {
-        method: 'POST'
-      });
-      const programData = await programResponse.json();
-      
-      if (programResponse.ok) {
-        console.log('FPGA programming result:', programData.message);
+      const programResp = await fetch('http://localhost:5050/api/pins/program', { method: 'POST' });
+      const programJson = await programResp.json();
+      if (programResp.ok) {
         alert('Конфигурация успешно применена!');
       } else {
-        console.error('FPGA programming error:', programData.error);
-        throw new Error(programData.error || 'Failed to program FPGA');
+        throw new Error(programJson.error || 'Failed to program FPGA');
       }
-    } catch (error) {
-      console.error('Error in save process:', error);
-      alert('Ошибка применения конфигурации: ' + error.message);
+    } catch (e) {
+      alert('Ошибка применения конфигурации: ' + e.message);
     } finally {
       setSaveStatus('');
     }
   };
 
-  // Загрузить соединения из JSON (только официальные имена)
+  // Load config
   const handleLoad = async () => {
     try {
-      const response = await fetch('http://localhost:5050/api/pins/config');
-      const data = await response.json();
+      const resp = await fetch('http://localhost:5050/api/pins/config');
+      const data = await resp.json();
       if (Array.isArray(data.connections)) {
-        // Формат: [de10Pin, peripheralPin]
         const newConnections = data.connections.map(([de10Pin, peripheralPin]) => {
           let peripheral = '';
           for (const p of peripherals) {
-            if (p.pins.includes(peripheralPin)) {
-              peripheral = p.name;
-              break;
-            }
+            if (p.pins.includes(peripheralPin)) { peripheral = p.name; break; }
           }
           return { peripheral, peripheralPin, de10Pin };
         });
         setConnections(newConnections);
-        console.log('Loaded connections:', newConnections);
+      } else if (data && data.connections && typeof data.connections === 'object') {
+        // maybe object form
+        setConnections([]);
       }
-    } catch (error) {
-      console.error('Error loading configuration:', error);
-      alert('Ошибка загрузки конфигурации');
+    } catch (e) {
+      console.error('Error loading config', e);
     }
   };
 
+  const exportConnections = () => {
+    const json = JSON.stringify({ connections: connections.map(({de10Pin, peripheralPin}) => [de10Pin, peripheralPin]) }, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'connections.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  // ---- Board/Peripheral logic ----
+
+  const onPeripheralPinSelected = (peripheralName, peripheralPin) => {
+    setSelectedPeripheral({ peripheral: peripheralName, peripheralPin });
+    setSelectedDe10(null);
+    setShowPeripheralMenu(false);
+  };
+
+  const handleBoardPinClick = (de10Pin) => {
+    if (selectedPeripheral) {
+      setConnections(prev => {
+        // remove any existing that matches peripheral+pin or de10Pin
+        const filtered = prev.filter(c =>
+          !(c.peripheral === selectedPeripheral.peripheral && c.peripheralPin === selectedPeripheral.peripheralPin)
+          && !(c.de10Pin === de10Pin)
+        );
+        filtered.push({
+          peripheral: selectedPeripheral.peripheral,
+          peripheralPin: selectedPeripheral.peripheralPin,
+          de10Pin
+        });
+        return filtered;
+      });
+      setSelectedPeripheral(null);
+      setSelectedDe10(de10Pin);
+    } else {
+      // no peripheral selected: if pin occupied -> remove, else just select/highlight
+      const existing = connections.find(c => c.de10Pin === de10Pin);
+      if (existing) {
+        setConnections(prev => prev.filter(c => c.de10Pin !== de10Pin));
+        setSelectedDe10(null);
+      } else {
+        setSelectedDe10(de10Pin);
+      }
+    }
+  };
+
+  // helper: get map of used de10 pins
+  const usedDe10Pins = connections.map(c => c.de10Pin);
+
   return (
     <div className="app-container">
-      {/* Видео окно */}
+      {/* TOP: Video — Оставлено как в оригинале */}
       <div className="video-container">
-        <div className="video-placeholder">
-          Видео трансляция
-        </div>
+        <div className="video-placeholder">Видео трансляция</div>
       </div>
 
-      {/* Кнопки управления и Arduino MEGA — один блок: сверху кнопки, снизу пины */}
-      <div className="peripheral-block" style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div className="but-arduino-grid" style={{ gridTemplateRows: '1fr 1fr' }}>
-          {/* Первый ряд — круглые кнопки управления */}
-          {buttonStates.map((btn, idx) => (
-            <div className="but-arduino-cell" key={`but-cell-${btn.id}`}> 
-              <button
-                className={`control-button round ${btn.pressed ? 'pressed' : ''}`}
-                onClick={() => toggleButton(btn.id)}
-              >
-                {btn.id}
-              </button>
+      {/* Header with + and selected peripheral hint */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+        <h2 style={{ margin: 0, color: '#ffffff' }}>FPGA Pin Map</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {selectedPeripheral ? (
+            <div style={{ color: '#fff', fontWeight: 600 }}>
+              Выбрано: <span style={{ color: '#ffd54f' }}>{selectedPeripheral.peripheral} — {selectedPeripheral.peripheralPin}</span>
+              <span style={{ marginLeft: 10, fontWeight: 400, color: '#ddd' }}>(Нажмите пин платы чтобы подключить)</span>
             </div>
-          ))}
-          {/* Второй ряд — пины Arduino MEGA */}
-          {Array.from({ length: 12 }).map((_, idx) => {
-            const pin = peripherals[0].pins[idx];
-            if (!pin) return <div className="but-arduino-cell" key={`pin-cell-empty-${idx}`}></div>;
-            const connected = connections.find(
-              (c) => c.peripheral === 'Arduino MEGA' && c.peripheralPin === pin
-            );
-            return (
-              <div className="but-arduino-cell" key={`pin-cell-${pin}`}> 
-                <button
-                  className={`pin-btn${connected ? ' connected' : ''}`}
-                  onClick={() => handlePinClick(0, idx)}
-                >
-                  {pin}
-                  {connected && <span className="de10-label">→ {connected.de10Pin}</span>}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-        <div className="peripheral-title">Панель кнопок</div>
-      </div>
-
-      {/* Остальные периферии */}
-      <div className="peripherals-container">
-        {peripherals.slice(1).map((peripheral, pIdx) => (
-          <div className="peripheral-row" key={peripheral.name}>
-            {peripheral.name === 'LED-массив' && (
-              <img src={lampImg} alt="LED-массив" className="peripheral-icon" />
-            )}
-            {peripheral.name === 'Семисегментник' && (
-              <img src={semiImg} alt="Семисегментник" className="peripheral-icon" />
-            )}
-            {peripheral.name === 'Сервопривод' && (
-              <img src={servoImg} alt="Сервопривод" className="peripheral-icon" />
-            )}
-            <div className="peripheral-block">
-              <div className="pins-list">
-                {peripheral.pins.map((pin, pinIdx) => {
-                  const connected = connections.find(
-                    (c) => c.peripheral === peripheral.name && c.peripheralPin === pin
-                  );
-                  return (
-                    <div key={pin} className="pin-container">
-                      <button
-                        className={`pin-btn${connected ? ' connected' : ''}`}
-                        onClick={() => handlePinClick(pIdx + 1, pinIdx)}
-                      >
-                        {pin}
-                        {connected && <span className="de10-label">→ {connected.de10Pin}</span>}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="peripheral-title">{peripheral.name}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Нижняя панель управления */}
-      <div className="bottom-controls">
-        <div className="file-upload-container">
-          <input
-            type="file"
-            id="file-upload"
-            onChange={handleFileUpload}
-            className="file-input"
-            accept=".sof"
-          />
-          <label htmlFor="file-upload" className="file-upload-label">
-            {selectedFile ? selectedFile.name : 'Выберите .sof файл'}
-          </label>
-          {uploadStatus && (
-            <div className={`upload-status ${uploadStatus.includes('Ошибка') ? 'error' : 'success'}`}>
-              {uploadStatus}
-            </div>
+          ) : (
+            <div style={{ color: '#ddd' }}>Периферию можно выбрать по +</div>
           )}
-        </div>
-        <div style={{display:'flex', flexDirection:'column', gap:8}}>
-          <select
-            value={selectedSof}
-            onChange={e => setSelectedSof(e.target.value)}
-            style={{marginBottom:8, minWidth:220}}
+
+          <button
+            className="control-button"
+            onClick={() => setShowPeripheralMenu(true)}
+            title="Открыть меню периферии"
+            style={{ fontSize: 18, padding: '6px 10px', borderRadius: 8 }}
           >
-            <option value="">Выберите .sof файл для прошивки</option>
-            {sofFiles.map(f => (
-              <option key={f} value={f}>{f.split('/').pop()}</option>
-            ))}
-          </select>
-          <button 
-            className="compile-btn" 
-            onClick={handleProgramDe10}
-            disabled={!selectedSof}
-          >
-            Программировать
+            +
           </button>
         </div>
-        <button 
-          className="compile-btn" 
-          onClick={handleSave}
-          disabled={saveStatus !== ''}
-        >
-          {saveStatus || 'Save'}
-        </button>
-        <button className="compile-btn" onClick={handleLoad}>Load</button>
       </div>
 
-      {/* Модальное окно выбора пина DE10-Lite */}
-      {showSelector && (
-        <div className="de10-modal">
-          <div className="de10-layout">
-            <img src={de10Image} alt="DE10-Lite" className="de10-img-vertical" />
-            <div className="de10-pins-scroll-area-fixed">
-              {de10PinsLeft.map((pin, idx) => (
-                <div className="de10-pin-row" key={pin + de10PinsRight[idx]}> 
-                  <span className="de10-pin-label left">{pin}</span>
-                  <button
-                    className={`de10-pin-dot${(pin === '5V' || pin === '3.3V' || pin === 'GND') ? ' power' : ''}${connections.some(c => c.de10Pin === pin) ? ' used' : ''}`}
-                    onClick={() => !connections.some(c => c.de10Pin === pin) && pin !== '5V' && pin !== '3.3V' && pin !== 'GND' && handleDe10PinSelect(pin)}
-                    disabled={connections.some(c => c.de10Pin === pin) || pin === '5V' || pin === '3.3V' || pin === 'GND'}
-                  />
-                  <button
-                    className={`de10-pin-dot${(de10PinsRight[idx] === '5V' || de10PinsRight[idx] === '3.3V' || de10PinsRight[idx] === 'GND') ? ' power' : ''}${connections.some(c => c.de10Pin === de10PinsRight[idx]) ? ' used' : ''}`}
-                    onClick={() => !connections.some(c => c.de10Pin === de10PinsRight[idx]) && de10PinsRight[idx] !== '5V' && de10PinsRight[idx] !== '3.3V' && de10PinsRight[idx] !== 'GND' && handleDe10PinSelect(de10PinsRight[idx])}
-                    disabled={connections.some(c => c.de10Pin === de10PinsRight[idx]) || de10PinsRight[idx] === '5V' || de10PinsRight[idx] === '3.3V' || de10PinsRight[idx] === 'GND'}
-                  />
-                  <span className="de10-pin-label right">{de10PinsRight[idx]}</span>
-                </div>
-              ))}
+      {/* CENTER: BoardMap */}
+      <BoardMap
+        leftPins={de10PinsLeft}
+        rightPins={de10PinsRight}
+        pinColorMap={pinColorMap}
+        peripheralColorMap={peripheralColorMap}
+        selectedDe10={selectedDe10}
+        onPinClick={handleBoardPinClick}
+      />
+
+      {/* BOTTOM: сохраняем оригинальную нижнюю панель функционала */}
+      <div className="bottom-controls" style={{ marginTop: 18 }}>
+        <div className="file-upload-container">
+          <label className="file-upload-label" htmlFor="sof-upload">Выберите .sof файл</label>
+          <input id="sof-upload" className="file-input" type="file" accept=".sof" onChange={handleFileUpload} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <select value={selectedSof} onChange={e => setSelectedSof(e.target.value)} style={{ padding: 8, borderRadius: 6 }}>
+              <option value="">Выберите .sof файл для прошивки</option>
+              {sofFiles.map((f, idx) => <option key={idx} value={f}>{f}</option>)}
+            </select>
+            <button className="compile-btn" onClick={handleProgramDe10} disabled={!selectedSof}>Программировать</button>
+          </div>
+
+          <div style={{ marginTop: 8 }}>
+            <div className={`upload-status ${uploadStatus.toLowerCase().includes('ошиб') ? 'error' : ''} ${uploadStatus.toLowerCase().includes('успеш') ? 'success' : ''}`}>
+              {uploadStatus || 'Статус загрузки: —'}
             </div>
           </div>
-          <button className="close-btn" onClick={() => setShowSelector(false)}>Отмена</button>
         </div>
-      )}
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <button className="export-btn" onClick={exportConnections}>Экспорт</button>
+          <button className="code-btn" onClick={handleSave} disabled={saveStatus !== ''}>{saveStatus || 'Save'}</button>
+          <button className="close-btn" onClick={handleLoad}>Load</button>
+        </div>
+      </div>
+
+      {/* Peripheral menu modal */}
+      <PeripheralMenu
+        open={showPeripheralMenu}
+        onClose={() => setShowPeripheralMenu(false)}
+        peripherals={peripherals}
+        buttonStates={buttonStates}
+        toggleButton={toggleButton}
+        onSelectPeripheralPin={onPeripheralPinSelected}
+        connections={connections}
+      />
     </div>
   );
 }
