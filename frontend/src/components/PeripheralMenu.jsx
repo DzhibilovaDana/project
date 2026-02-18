@@ -7,8 +7,6 @@ import React, { useState } from 'react';
  *  - open: boolean
  *  - onClose: () => void
  *  - peripherals: [{ name, pins: [], color }, ...]
- *  - buttonStates: [{id, pressed}, ...]
- *  - toggleButton(buttonId): fn
  *  - onSelectPeripheralPin(peripheralName, pinName): fn
  *  - connections: [{ peripheral, peripheralPin, de10Pin }]
  */
@@ -16,8 +14,6 @@ export default function PeripheralMenu({
   open,
   onClose,
   peripherals = [],
-  buttonStates = [],
-  toggleButton,
   onSelectPeripheralPin = () => {},
   connections = []
 }) {
@@ -34,17 +30,32 @@ export default function PeripheralMenu({
     return found ? found.de10Pin : null;
   };
 
+  const getPinLabel = (peripheralName, pin, index) => {
+    if (peripheralName === 'Кнопки') {
+      return `Кнопка ${index + 1}`;
+    }
+    const buttonMatch = String(pin).match(/(?:but|button)(\d+)/i);
+    if (buttonMatch) return `Кнопка ${buttonMatch[1]}`;
+    return pin;
+  };
+  const getConnectionPinLabel = (peripheralName, pin) => {
+    if (peripheralName === 'Кнопки') {
+      const idx = peripherals.find(p => p.name === 'Кнопки')?.pins.indexOf(pin);
+      return idx !== undefined && idx >= 0 ? `Кнопка ${idx + 1}` : pin;
+    }
+    return getPinLabel(peripheralName, pin, 0);
+  };
+
   return (
     <div className="modal-overlay" style={{ zIndex: 400 }}>
        <div className="modal-window peripheral-modal-window" style={{ maxWidth: 1000 }}>
         <button className="modal-close-x" onClick={onClose} aria-label="Закрыть меню">×</button>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="modal-title">Периферия и кнопки</div>
+          <div className="modal-title">Периферия</div>
         </div>
 
-        <div style={{ display: 'flex', gap: 18, marginTop: 12 }}>
-          {/* Left column: peripherals */}
-          <div style={{ flex: 1, minWidth: 360 }}>
+        <div style={{ marginTop: 12 }}>
+          <div style={{ minWidth: 360 }}>
             {peripherals.map((p) => (
               <div key={p.name} style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -70,7 +81,7 @@ export default function PeripheralMenu({
 
                 {expanded[p.name] && (
                   <div className="pins-list" style={{ marginTop: 8 }}>
-                    {p.pins.map(pin => {
+                    {p.pins.map((pin, index) => {
                       const connected = peripheralHasPinConnected(p.name, pin);
                       const de10 = getConnectedDe10(p.name, pin);
                       return (
@@ -83,7 +94,7 @@ export default function PeripheralMenu({
                             }}
                             title={pin}
                           >
-                            {pin}
+                            {getPinLabel(p.name, pin, index)}
                           </button>
                           {connected && (
                             <div style={{ fontSize: 12, color: '#fff', opacity: 0.85 }}>
@@ -99,34 +110,13 @@ export default function PeripheralMenu({
             ))}
           </div>
 
-          {/* Divider */}
-          <div style={{ width: 1, background: '#333', minHeight: 240 }} />
-
-          {/* Right column: buttons and connections */}
-          <div style={{ width: 360 }}>
-            <div style={{ fontWeight: 700, color: '#ffe600', marginBottom: 8 }}>Кнопки управления</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-              {buttonStates.map(btn => (
-                <div key={btn.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    className={`control-button round ${btn.pressed ? 'pressed' : ''}`}
-                    onClick={() => toggleButton && toggleButton(btn.id)}
-                    title={btn.id}
-                    style={{ width: 44, height: 44 }}
-                  >
-                    {btn.id.replace('but','')}
-                  </button>
-                  <div style={{ color: '#fff', minWidth: 60 }}>{btn.id}</div>
-                </div>
-              ))}
-            </div>
-
+          <div style={{ marginTop: 10 }}>
             <div style={{ fontWeight: 700, color: '#ffe600', marginBottom: 8 }}>Текущие подключения</div>
             <div style={{ maxHeight: 240, overflow: 'auto', paddingRight: 8 }}>
               {connections.length === 0 && <div style={{ color: '#aaa' }}>Нет подключений</div>}
               {connections.map((c, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #222' }}>
-                  <div style={{ color: '#fff' }}>{c.peripheral} — {c.peripheralPin}</div>
+                  <div style={{ color: '#fff' }}>{c.peripheral} — {getConnectionPinLabel(c.peripheral, c.peripheralPin)}</div>
                   <div style={{ color: '#ffe600' }}>{c.de10Pin}</div>
                 </div>
               ))}

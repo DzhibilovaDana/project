@@ -119,6 +119,43 @@
   font-size: 0.95em;
 }
 
+.camera-controls-section {
+  margin-top: -8px;
+  background: linear-gradient(180deg, #2b2f3a 0%, #232734 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.camera-controls-header {
+  color: #ffe600;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.camera-controls-hint {
+  color: #d6def2;
+  font-size: 0.88rem;
+  margin-top: 4px;
+}
+
+.camera-controls-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.camera-control-button {
+  min-width: 0;
+  padding: 10px 8px;
+  border-radius: 8px;
+  border-color: #7e89a6;
+  background: #3b4358;
+  font-weight: 600;
+}
+
 /* Периферийные устройства */
 .peripherals-container {
   display: flex;

@@ -6,7 +6,7 @@ import PeripheralMenu from './components/PeripheralMenu';
 
 // Описание периферии с цветами (можно скорректировать цвета)
 const peripherals = [
-  { name: 'Arduino MEGA', pins: ['22','24','26','28','30','32','34','36','38','40','42','44'], color: '#FF7043' }, // orange
+  { name: 'Кнопки', pins: ['22','24','26','28','30','32','34','36','38','40','42','44'], color: '#FF7043' }, // orange
   { name: 'LED', pins: ['led1','led2','led3','led4','led5','led6','led7','RGB1','RGB2','RGB3'], color: '#FFEB3B' }, // yellow
   { name: 'Семисегментный дисплей', pins: ['A','B','C','D','E','F','G','DP','DIG1','DIG2','DIG3','DIG4'], color: '#4FC3F7' }, // light blue
   { name: 'Сервопривод', pins: ['serv1'], color: '#A1887F' } // brown/steel
@@ -86,6 +86,20 @@ function App() {
         return btn;
       })
     );
+  };
+
+  const getButtonLabel = (buttonId) => {
+    const match = String(buttonId).match(/(?:but|button)(\d+)/i);
+    return match ? `Кнопка ${match[1]}` : buttonId;
+  };
+
+  const getPeripheralPinLabel = (peripheralName, peripheralPin) => {
+    if (peripheralName === 'Кнопки') {
+      const idx = peripherals.find(p => p.name === 'Кнопки')?.pins.indexOf(peripheralPin);
+      return idx !== undefined && idx >= 0 ? `Кнопка ${idx + 1}` : peripheralPin;
+    }
+    const match = String(peripheralPin).match(/(?:but|button)(\d+)/i);
+    return match ? `Кнопка ${match[1]}` : peripheralPin;
   };
 
   // File upload
@@ -252,9 +266,6 @@ function App() {
     }
   };
 
-  // helper: get map of used de10 pins
-  const usedDe10Pins = connections.map(c => c.de10Pin);
-
   return (
     <div className="app-container">
       {/* TOP: Video — Оставлено как в оригинале */}
@@ -262,13 +273,31 @@ function App() {
         <div className="video-placeholder">Видео трансляция</div>
       </div>
 
+      <section className="camera-controls-section" aria-label="Кнопки управления при просмотре камеры">
+        <div className="camera-controls-header">Кнопки управления</div>
+        <div className="camera-controls-hint">Используйте во время просмотра реакции платы или периферии на камере</div>
+        <div className="camera-controls-grid">
+          {buttonStates.map(btn => (
+            <button
+              key={btn.id}
+              className={`control-button camera-control-button ${btn.pressed ? 'pressed' : ''}`}
+              onClick={() => toggleButton(btn.id)}
+              title={getButtonLabel(btn.id)}
+              aria-label={getButtonLabel(btn.id)}
+            >
+              {getButtonLabel(btn.id)}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Header with + and selected peripheral hint */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <h2 style={{ margin: 0, color: '#ffffff' }}>FPGA Pin Map</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {selectedPeripheral ? (
             <div style={{ color: '#fff', fontWeight: 600 }}>
-              Выбрано: <span style={{ color: '#ffd54f' }}>{selectedPeripheral.peripheral} — {selectedPeripheral.peripheralPin}</span>
+              Выбрано: <span style={{ color: '#ffd54f' }}>{selectedPeripheral.peripheral} — {getPeripheralPinLabel(selectedPeripheral.peripheral, selectedPeripheral.peripheralPin)}</span>
               <span style={{ marginLeft: 10, fontWeight: 400, color: '#ddd' }}>(Нажмите пин платы чтобы подключить)</span>
             </div>
           ) : (
@@ -329,8 +358,6 @@ function App() {
         open={showPeripheralMenu}
         onClose={() => setShowPeripheralMenu(false)}
         peripherals={peripherals}
-        buttonStates={buttonStates}
-        toggleButton={toggleButton}
         onSelectPeripheralPin={onPeripheralPinSelected}
         connections={connections}
       />
