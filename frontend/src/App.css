@@ -440,6 +440,36 @@
   flex-direction: column;
   align-items: stretch;
 }
+
+.peripheral-modal-window {
+  position: relative;
+  padding-top: 44px;
+}
+
+.modal-close-x {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #666;
+  border-radius: 8px;
+  background: #333;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-close-x:hover {
+  background: #555;
+  border-color: #ffe600;
+}
+
 .modal-title {
   font-size: 1.2em;
   font-weight: bold;

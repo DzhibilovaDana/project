@@ -8,6 +8,7 @@ import de10Image from '../de10-lite.jpg';
  *  - leftPins: array of pin names (left column)
  *  - rightPins: array of pin names (right column)
  *  - pinColorMap: { pinName: '#rrggbb' }  // если пин задействован, его цвет
+ *  - pinTooltipMap: { pinName: 'Peripheral Name' } // tooltip для подключенных пинов
  *  - peripheralColorMap: { peripheralName: '#rrggbb' }  // для легенды
  *  - selectedDe10: pinName
  *  - onPinClick(pinName)
@@ -16,6 +17,7 @@ export default function BoardMap({
   leftPins = [],
   rightPins = [],
   pinColorMap = {},
+  pinTooltipMap = {},
   peripheralColorMap = {},
   selectedDe10 = null,
   onPinClick = () => {}
@@ -42,13 +44,14 @@ export default function BoardMap({
     } : undefined;
 
     const className = `board-pin ${isSelected ? 'selected' : ''} ${color ? 'has-color' : ''}`;
+    const tooltip = pinTooltipMap[pin] || pin;
 
     return (
       <button
         key={pin}
         className={className}
         onClick={() => onPinClick(pin)}
-        title={pin}
+        title={tooltip}
         style={style}
       >
         <span className="pin-label">{pin}</span>

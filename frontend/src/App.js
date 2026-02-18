@@ -7,8 +7,8 @@ import PeripheralMenu from './components/PeripheralMenu';
 // Описание периферии с цветами (можно скорректировать цвета)
 const peripherals = [
   { name: 'Arduino MEGA', pins: ['22','24','26','28','30','32','34','36','38','40','42','44'], color: '#FF7043' }, // orange
-  { name: 'LED-массив', pins: ['led1','led2','led3','led4','led5','led6','led7','RGB1','RGB2','RGB3'], color: '#FFEB3B' }, // yellow
-  { name: 'Семисегментник', pins: ['A','B','C','D','E','F','G','DP','DIG1','DIG2','DIG3','DIG4'], color: '#4FC3F7' }, // light blue
+  { name: 'LED', pins: ['led1','led2','led3','led4','led5','led6','led7','RGB1','RGB2','RGB3'], color: '#FFEB3B' }, // yellow
+  { name: 'Семисегментный дисплей', pins: ['A','B','C','D','E','F','G','DP','DIG1','DIG2','DIG3','DIG4'], color: '#4FC3F7' }, // light blue
   { name: 'Сервопривод', pins: ['serv1'], color: '#A1887F' } // brown/steel
 ];
 
@@ -48,6 +48,15 @@ function App() {
     connections.forEach(c => {
       const p = peripherals.find(pp => pp.name === c.peripheral);
       if (p && p.color) m[c.de10Pin] = p.color;
+    });
+    return m;
+  }, [connections]);
+
+  // pinTooltipMap: de10Pin -> connected peripheral name
+  const pinTooltipMap = useMemo(() => {
+    const m = {};
+    connections.forEach(c => {
+      m[c.de10Pin] = c.peripheral;
     });
     return m;
   }, [connections]);
@@ -282,6 +291,7 @@ function App() {
         leftPins={de10PinsLeft}
         rightPins={de10PinsRight}
         pinColorMap={pinColorMap}
+        pinTooltipMap={pinTooltipMap}
         peripheralColorMap={peripheralColorMap}
         selectedDe10={selectedDe10}
         onPinClick={handleBoardPinClick}
