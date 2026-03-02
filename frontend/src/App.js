@@ -1,5 +1,5 @@
 // frontend/src/App.js
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './App.css';
 import BoardMap from './components/BoardMap';
 import PeripheralMenu from './components/PeripheralMenu';
@@ -34,6 +34,14 @@ function App() {
   const [sofFiles, setSofFiles] = useState([]);
   const [selectedSof, setSelectedSof] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
+  const [schemeStatus, setSchemeStatus] = useState('');
+  const schemeFileInputRef = useRef(null);
+
+  const boardConfig = useMemo(() => ({
+    name: 'DE10-Lite',
+    leftPins: de10PinsLeft,
+    rightPins: de10PinsRight
+  }), []);
 
   // Peripheral color map for BoardMap legend
   const peripheralColorMap = useMemo(() => {
@@ -196,38 +204,108 @@ function App() {
     }
   };
 
+  const normalizeImportedConnections = (importedConnections) => importedConnections
+    .map(connection => {
+      if (Array.isArray(connection) && connection.length === 2) {
+        const [de10Pin, peripheralPin] = connection;
+        const foundPeripheral = peripherals.find(peripheral => peripheral.pins.includes(peripheralPin));
+        return {
+          de10Pin,
+          peripheralPin,
+          peripheral: foundPeripheral?.name || ''
+        };
+      }
+
+      if (
+        connection
+        && typeof connection === 'object'
+        && typeof connection.de10Pin === 'string'
+        && typeof connection.peripheralPin === 'string'
+      ) {
+        const foundPeripheral = connection.peripheral
+          ? peripherals.find(peripheral => peripheral.name === connection.peripheral)
+          : peripherals.find(peripheral => peripheral.pins.includes(connection.peripheralPin));
+
+        return {
+          de10Pin: connection.de10Pin,
+          peripheralPin: connection.peripheralPin,
+          peripheral: foundPeripheral?.name || ''
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+
   // Load config
   const handleLoad = async () => {
     try {
       const resp = await fetch('http://localhost:5050/api/pins/config');
       const data = await resp.json();
-      if (Array.isArray(data.connections)) {
-        const newConnections = data.connections.map(([de10Pin, peripheralPin]) => {
-          let peripheral = '';
-          for (const p of peripherals) {
-            if (p.pins.includes(peripheralPin)) { peripheral = p.name; break; }
-          }
-          return { peripheral, peripheralPin, de10Pin };
-        });
-        setConnections(newConnections);
-      } else if (data && data.connections && typeof data.connections === 'object') {
-        // maybe object form
-        setConnections([]);
-      }
+      const importedConnections = Array.isArray(data.connections) ? data.connections : [];
+      setConnections(normalizeImportedConnections(importedConnections));
     } catch (e) {
       console.error('Error loading config', e);
     }
   };
 
   const exportConnections = () => {
-    const json = JSON.stringify({ connections: connections.map(({de10Pin, peripheralPin}) => [de10Pin, peripheralPin]) }, null, 2);
+    const usedPeripherals = peripherals
+      .map(peripheral => ({
+        ...peripheral,
+        usedPins: connections
+          .filter(connection => connection.peripheral === peripheral.name)
+          .map(connection => connection.peripheralPin)
+      }))
+      .filter(peripheral => peripheral.usedPins.length > 0);
+
+    const configToExport = {
+      version: 1,
+      board: boardConfig,
+      peripherals: usedPeripherals,
+      connections: connections.map(({ de10Pin, peripheralPin, peripheral }) => ({
+        de10Pin,
+        peripheral,
+        peripheralPin
+      }))
+    };
+
+    const json = JSON.stringify(configToExport, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'connections.json';
+    a.download = 'fpga-scheme.json';
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+   const handleImportConnections = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const importedConnections = Array.isArray(parsed.connections) ? parsed.connections : [];
+
+        setConnections(normalizeImportedConnections(importedConnections));
+        setSelectedPeripheral(null);
+        setSelectedDe10(null);
+        setSchemeStatus('Схема успешно загружена из файла');
+      } catch (error) {
+        setSchemeStatus('Ошибка загрузки схемы: неверный JSON файл');
+      }
+    };
+
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
+  const openSchemeImportDialog = () => {
+    schemeFileInputRef.current?.click();
+  };
+
 
   // ---- Board/Peripheral logic ----
 
@@ -303,7 +381,15 @@ function App() {
           ) : (
             <div style={{ color: '#ddd' }}>Периферию можно выбрать по +</div>
           )}
-
+          <button className="export-btn" onClick={exportConnections}>Сохранить схему</button>
+          <button className="export-btn" onClick={openSchemeImportDialog}>Загрузить схему</button>
+          <input
+            ref={schemeFileInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImportConnections}
+            style={{ display: 'none' }}
+          />
           <button
             className="control-button"
             onClick={() => setShowPeripheralMenu(true)}
@@ -346,10 +432,11 @@ function App() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <button className="export-btn" onClick={exportConnections}>Экспорт</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
           <button className="code-btn" onClick={handleSave} disabled={saveStatus !== ''}>{saveStatus || 'Save'}</button>
-          <button className="close-btn" onClick={handleLoad}>Load</button>
+          <div className={`upload-status ${schemeStatus.toLowerCase().includes('ошиб') ? 'error' : ''} ${schemeStatus.toLowerCase().includes('успеш') ? 'success' : ''}`}>
+            {schemeStatus || 'Статус схемы: —'}
+          </div>
         </div>
       </div>
 
