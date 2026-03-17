@@ -25,6 +25,7 @@ function App() {
   const [showPeripheralMenu, setShowPeripheralMenu] = useState(false);
   const [selectedPeripheral, setSelectedPeripheral] = useState(null); // { peripheral, peripheralPin }
   const [selectedDe10, setSelectedDe10] = useState(null);
+  const [pendingDe10Pin, setPendingDe10Pin] = useState(null);
 
   const [buttonStates, setButtonStates] = useState(Array.from({ length: 12 }, (_, i) => ({ id: `but${i+1}`, pressed: false })));
 
@@ -310,8 +311,28 @@ function App() {
   // ---- Board/Peripheral logic ----
 
   const onPeripheralPinSelected = (peripheralName, peripheralPin) => {
+    if (pendingDe10Pin) {
+      setConnections(prev => {
+        const filtered = prev.filter(c =>
+          !(c.peripheral === peripheralName && c.peripheralPin === peripheralPin)
+          && !(c.de10Pin === pendingDe10Pin)
+        );
+        filtered.push({
+          peripheral: peripheralName,
+          peripheralPin,
+          de10Pin: pendingDe10Pin
+        });
+        return filtered;
+      });
+      setSelectedPeripheral(null);
+      setSelectedDe10(pendingDe10Pin);
+      setPendingDe10Pin(null);
+      setShowPeripheralMenu(false);
+      return;
+    }
     setSelectedPeripheral({ peripheral: peripheralName, peripheralPin });
     setSelectedDe10(null);
+    setPendingDe10Pin(null);
     setShowPeripheralMenu(false);
   };
 
@@ -332,14 +353,18 @@ function App() {
       });
       setSelectedPeripheral(null);
       setSelectedDe10(de10Pin);
+      setPendingDe10Pin(null);
     } else {
       // no peripheral selected: if pin occupied -> remove, else just select/highlight
       const existing = connections.find(c => c.de10Pin === de10Pin);
       if (existing) {
         setConnections(prev => prev.filter(c => c.de10Pin !== de10Pin));
         setSelectedDe10(null);
+        setPendingDe10Pin(null);
       } else {
         setSelectedDe10(de10Pin);
+        setPendingDe10Pin(de10Pin);
+        setShowPeripheralMenu(true);
       }
     }
   };
@@ -377,6 +402,11 @@ function App() {
             <div style={{ color: '#fff', fontWeight: 600 }}>
               Выбрано: <span style={{ color: '#ffd54f' }}>{selectedPeripheral.peripheral} — {getPeripheralPinLabel(selectedPeripheral.peripheral, selectedPeripheral.peripheralPin)}</span>
               <span style={{ marginLeft: 10, fontWeight: 400, color: '#ddd' }}>(Нажмите пин платы чтобы подключить)</span>
+            </div>
+          ) : pendingDe10Pin ? (
+            <div style={{ color: '#fff', fontWeight: 600 }}>
+              Выбран пин платы: <span style={{ color: '#ffd54f' }}>{pendingDe10Pin}</span>
+              <span style={{ marginLeft: 10, fontWeight: 400, color: '#ddd' }}>(Выберите пин периферии в открытом меню)</span>
             </div>
           ) : (
             <div style={{ color: '#ddd' }}>Периферию можно выбрать по +</div>
@@ -443,7 +473,10 @@ function App() {
       {/* Peripheral menu modal */}
       <PeripheralMenu
         open={showPeripheralMenu}
-        onClose={() => setShowPeripheralMenu(false)}
+        onClose={() => {
+          setShowPeripheralMenu(false);
+          setPendingDe10Pin(null);
+        }}
         peripherals={peripherals}
         onSelectPeripheralPin={onPeripheralPinSelected}
         connections={connections}

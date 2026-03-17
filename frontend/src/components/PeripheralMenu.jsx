@@ -90,7 +90,6 @@ export default function PeripheralMenu({
                             className={`pin-btn ${connected ? 'connected' : ''}`}
                             onClick={() => {
                               onSelectPeripheralPin(p.name, pin);
-                              onClose();
                             }}
                             title={pin}
                           >
@@ -125,8 +124,8 @@ export default function PeripheralMenu({
             <div style={{ marginTop: 12 }}>
               <div style={{ fontWeight: 700, color: '#ffe600', marginBottom: 6 }}>Подсказка</div>
               <div style={{ color: '#ddd', fontSize: 13 }}>
-                Выберите пин в списке периферии — меню закроется, затем нажмите на пин на плате, чтобы подключить.
-                Если кликнуть по занятому пину платы (без выбора периферии) — соединение удалится.
+                Нажмите свободный пин на плате, затем выберите пин периферии в этом меню — подключение выполнится автоматически.
+                Если кликнуть по занятому пину платы (без выбора периферии), соединение удалится.
               </div>
             </div>
           </div>
