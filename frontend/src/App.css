@@ -38,6 +38,7 @@
 }
 
 .app-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -48,6 +49,83 @@
   max-width: 1200px;
   margin: 0 auto;
   gap: 20px;
+}
+
+.admin-entry-btn {
+  position: absolute;
+  top: 28px;
+  right: 28px;
+  z-index: 20;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(18, 28, 48, 0.85);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-entry-btn:hover {
+  background: rgba(28, 43, 72, 0.95);
+}
+
+.auth-page {
+  justify-content: center;
+  align-items: center;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 460px;
+  background: #2b3a58;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-card {
+  max-width: 560px;
+}
+
+.auth-card h1 {
+  margin: 0;
+}
+
+.auth-card p {
+  margin: 0;
+  color: #d8e5ff;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-form input {
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid #7e9dcc;
+  padding: 0 10px;
+  background: #f6f8ff;
+}
+
+.auth-error {
+  border: 1px solid #ff7f7f;
+  border-radius: 8px;
+  padding: 10px;
+  color: #ffd6d6;
+  background: rgba(128, 16, 16, 0.4);
+}
+
+.admin-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 10px;
 }
 
 /* Видео контейнер */
@@ -897,10 +975,10 @@
 /* пины */
 .board-header-hotspot {
   position: absolute;
-  right: 17%;
-  top: 11%;
-  width: 62px;
-  height: 73%;
+  right: 4.2%;
+  top: 10.5%;
+  width: 70px;
+  height: 74%;
   border: 3px solid rgba(255, 64, 64, 0.85);
   border-radius: 8px;
   background: rgba(18, 24, 39, 0.2);

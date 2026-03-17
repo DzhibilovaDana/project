@@ -20,6 +20,12 @@ const de10PinsRight = [
 ];
 
 function App() {
+  const [currentPage, setCurrentPage] = useState(() => window.location.pathname || '/');
+  const [authUser, setAuthUser] = useState(null);
+  const [authError, setAuthError] = useState('');
+  const [adminConfigFile, setAdminConfigFile] = useState(null);
+  const [adminUploadStatus, setAdminUploadStatus] = useState('');
+
   // State
   const [connections, setConnections] = useState([]); // { peripheral, peripheralPin, de10Pin }
   const [showPeripheralMenu, setShowPeripheralMenu] = useState(false);
@@ -155,6 +161,51 @@ function App() {
     handleLoad();
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPage(window.location.pathname || '/');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path) => {
+    window.history.pushState({}, '', path);
+    setCurrentPage(path);
+  };
+
+  const handleAuthSubmit = (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const login = String(formData.get('login') || '').trim();
+    const password = String(formData.get('password') || '').trim();
+
+    const allowedUsers = {
+      admin: '111',
+      lab: '222'
+    };
+
+    if (allowedUsers[login] && allowedUsers[login] === password) {
+      setAuthUser(login);
+      setAuthError('');
+      if (login === 'admin') {
+        navigateTo('/admin');
+      } else {
+        navigateTo('/');
+      }
+      return;
+    }
+
+    setAuthError('Неверный логин или пароль. Доступ: admin/111, lab/222');
+  };
+
+  const handleAdminFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setAdminConfigFile(file);
+    setAdminUploadStatus(file ? `Файл «${file.name}» загружен` : '');
+  };
 
   const handleProgramDe10 = async () => {
     if (!selectedSof) return;
@@ -369,8 +420,82 @@ function App() {
     }
   };
 
+   if (currentPage === '/login') {
+    return (
+      <div className="app-container auth-page">
+        <div className="auth-card">
+          <h1>Вход в систему</h1>
+          <p>Введите логин и пароль для доступа.</p>
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            <label htmlFor="login">Логин</label>
+            <input id="login" name="login" type="text" placeholder="admin или lab" required />
+
+            <label htmlFor="password">Пароль</label>
+            <input id="password" name="password" type="password" placeholder="Введите пароль" required />
+
+            {authError && <div className="auth-error">{authError}</div>}
+
+            <button className="compile-btn" type="submit">Войти</button>
+            <button className="control-button" type="button" onClick={() => navigateTo('/')}>Вернуться на главную</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === '/admin') {
+    if (authUser !== 'admin') {
+      return (
+        <div className="app-container auth-page">
+          <div className="auth-card">
+            <h1>Доступ запрещён</h1>
+            <p>Для страницы администратора выполните вход под пользователем admin.</p>
+            <button className="compile-btn" type="button" onClick={() => navigateTo('/login')}>Перейти к входу</button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="app-container auth-page">
+        <div className="auth-card admin-card">
+          <h1>Панель администратора</h1>
+          <p>Загрузите конфигурационную таблицу. Проверка содержимого будет реализована на бэкенде.</p>
+
+          <label className="file-upload-label" htmlFor="admin-config-upload">Выбрать конфигурационный файл</label>
+          <input
+            id="admin-config-upload"
+            className="file-input"
+            type="file"
+            onChange={handleAdminFileChange}
+          />
+
+          {adminConfigFile && <div className="upload-status success">Выбран файл: {adminConfigFile.name}</div>}
+          {adminUploadStatus && <div className="upload-status">{adminUploadStatus}</div>}
+
+          <div className="admin-actions">
+            <button className="compile-btn" type="button" onClick={() => navigateTo('/')}>На главную</button>
+            <button
+              className="control-button"
+              type="button"
+              onClick={() => {
+                setAuthUser(null);
+                navigateTo('/login');
+              }}
+            >
+              Выйти
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
+      <button className="admin-entry-btn" type="button" onClick={() => navigateTo('/login')}>
+        Вход для администратора
+      </button>
       {/* TOP: Video — Оставлено как в оригинале */}
       <div className="video-container">
         <div className="video-placeholder">Видео трансляция</div>
