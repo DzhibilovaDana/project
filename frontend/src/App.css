@@ -53,8 +53,8 @@
 
 .admin-entry-btn {
   position: absolute;
-  top: 28px;
-  right: 28px;
+  top: 0px;
+  right: -600px;
   z-index: 20;
   border: 1px solid rgba(255, 255, 255, 0.45);
   background: rgba(18, 28, 48, 0.85);
@@ -973,11 +973,27 @@
 }
 
 /* пины */
+/*
+  === НАСТРОЙКА ИНТЕРАКТИВНОЙ НАКЛАДКИ НА ПЛАТУ ===
+  .board-header-hotspot:
+    - right / top      -> положение всей интерактивной панели на фото платы
+    - width / height   -> общий размер интерактивной панели
+    - padding          -> внутренние отступы панели до пинов
+    - border / radius  -> рамка и скругление панели
+
+  .header-row-compact:
+    - gap              -> расстояние между левым и правым пином в одной строке
+
+  .header-pin-dot.compact:
+    - width / height   -> размер каждого маленького пина
+    - border-radius    -> форма пина (50% = круг)
+    - border           -> обводка пина
+*/
 .board-header-hotspot {
   position: absolute;
-  right: 4.2%;
-  top: 10.5%;
-  width: 70px;
+  right: 21.5%;
+  top: 13.5%;
+  width: 65px;
   height: 74%;
   border: 3px solid rgba(255, 64, 64, 0.85);
   border-radius: 8px;
@@ -998,7 +1014,7 @@
 .header-row-compact {
   display: flex;
   justify-content: space-between;
-  gap: 6px;
+  gap: 2px;
 }
 
 .header-pin-dot {
