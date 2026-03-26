@@ -15,7 +15,8 @@ export default function PeripheralMenu({
   onClose,
   peripherals = [],
   onSelectPeripheralPin = () => {},
-  connections = []
+  connections = [],
+  peripheralLimits = {}
 }) {
   const [expanded, setExpanded] = useState({});
   const toggleExpand = (name) => setExpanded(prev => ({ ...prev, [name]: !prev[name] }));
@@ -46,6 +47,11 @@ export default function PeripheralMenu({
     return getPinLabel(peripheralName, pin, 0);
   };
 
+  const getConnectedCount = (peripheralName) => connections.filter(c => c.peripheral === peripheralName).length;
+  const getPeripheralLimit = (peripheralName) => (
+    Number.isInteger(peripheralLimits[peripheralName]) ? peripheralLimits[peripheralName] : null
+  );
+
   return (
     <div className="modal-overlay" style={{ zIndex: 400 }}>
        <div className="modal-window peripheral-modal-window" style={{ maxWidth: 1000 }}>
@@ -65,7 +71,14 @@ export default function PeripheralMenu({
                       width: 14, height: 14, borderRadius: 3,
                       background: p.color, boxShadow: '0 1px 6px rgba(0,0,0,0.25)'
                     }} />
-                    <div style={{ fontWeight: 700, color: '#ffe600' }}>{p.name}</div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#ffe600' }}>{p.name}</div>
+                      {getPeripheralLimit(p.name) !== null && (
+                        <div style={{ color: '#d6def2', fontSize: 12 }}>
+                          Доступно: {getConnectedCount(p.name)} / {getPeripheralLimit(p.name)}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -84,6 +97,8 @@ export default function PeripheralMenu({
                     {p.pins.map((pin, index) => {
                       const connected = peripheralHasPinConnected(p.name, pin);
                       const de10 = getConnectedDe10(p.name, pin);
+                      const limit = getPeripheralLimit(p.name);
+                      const disabledByLimit = !connected && limit !== null && getConnectedCount(p.name) >= limit;
                       return (
                         <div className="pin-container" key={`${p.name}-${pin}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                           <button
@@ -92,6 +107,8 @@ export default function PeripheralMenu({
                               onSelectPeripheralPin(p.name, pin);
                             }}
                             title={pin}
+                            disabled={disabledByLimit}
+                            style={disabledByLimit ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
                           >
                             {getPinLabel(p.name, pin, index)}
                           </button>

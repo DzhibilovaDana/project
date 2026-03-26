@@ -13,11 +13,14 @@ const peripherals = [
 ];
 
 const de10PinsLeft = [
-  'V10','V9','V8','V7','W6','W5','AA14','W12','AB12','AB11','AB10','AA9','AA8','AA7','AA6','AA5','AB3','AB2'
+  'V10','V9','V8','V7','W6','5V','W5','AA14','W12','AB12','AB11','AB10','AA9','AA8','3.3V','AA7','AA6','AA5','AB3','AB2'
 ];
 const de10PinsRight = [
-  'W10','W9','W8','W7','V5','AA15','W13','AB13','Y11','W11','AA10','Y8','Y7','Y6','Y5','Y4','Y3','AA2'
+  'W10','W9','W8','W7','V5','GND','AA15','W13','AB13','Y11','W11','AA10','Y8','Y7','GND2','Y6','Y5','Y4','Y3','AA2'
 ];
+const nonInteractivePins = ['5V', '3.3V', 'GND', 'GND2'];
+const powerPinsHighlightColor = '#E91E63';
+const buildDefaultPeripheralLimits = () => Object.fromEntries(peripherals.map(peripheral => [peripheral.name, peripheral.pins.length]));
 
 function App() {
   const [currentPage, setCurrentPage] = useState(() => window.location.pathname || '/');
@@ -25,6 +28,10 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [adminConfigFile, setAdminConfigFile] = useState(null);
   const [adminUploadStatus, setAdminUploadStatus] = useState('');
+  const [peripheralLimits, setPeripheralLimits] = useState(buildDefaultPeripheralLimits);
+  const [labLimitValues, setLabLimitValues] = useState(buildDefaultPeripheralLimits);
+  const [labValidationError, setLabValidationError] = useState('');
+  const [labExportStatus, setLabExportStatus] = useState('');
 
   // State
   const [connections, setConnections] = useState([]); // { peripheral, peripheralPin, de10Pin }
@@ -193,7 +200,7 @@ function App() {
       if (login === 'admin') {
         navigateTo('/admin');
       } else {
-        navigateTo('/');
+        navigateTo('/lab');
       }
       return;
     }
@@ -205,6 +212,60 @@ function App() {
     const file = event.target.files?.[0] || null;
     setAdminConfigFile(file);
     setAdminUploadStatus(file ? `Файл «${file.name}» загружен` : '');
+  };
+
+  const handleLabLimitChange = (peripheralName, rawValue) => {
+    const peripheral = peripherals.find(item => item.name === peripheralName);
+    if (!peripheral) return;
+
+    if (rawValue === '') {
+      setLabLimitValues(prev => ({ ...prev, [peripheralName]: '' }));
+      return;
+    }
+
+    const parsed = Number(rawValue);
+    if (!Number.isInteger(parsed)) return;
+
+    const bounded = Math.min(peripheral.pins.length, Math.max(0, parsed));
+    setLabLimitValues(prev => ({ ...prev, [peripheralName]: bounded }));
+  };
+
+  const applyLabLimits = () => {
+    const nextLimits = sanitizePeripheralLimits(labLimitValues);
+    const hasInvalid = peripherals.some(peripheral => {
+      const raw = labLimitValues[peripheral.name];
+      return raw === '' || Number(raw) < 0 || Number(raw) > peripheral.pins.length;
+    });
+    if (hasInvalid) {
+      setLabValidationError('Проверьте лимиты: только целые числа от 0 до максимума для каждого типа периферии.');
+      return;
+    }
+
+    setPeripheralLimits(nextLimits);
+    setLabLimitValues(nextLimits);
+    setConnections(prev => enforcePeripheralLimits(prev, nextLimits));
+    setLabValidationError('');
+    setLabExportStatus('Лимиты применены локально.');
+  };
+
+  const exportLabConfig = () => {
+    const nextLimits = sanitizePeripheralLimits(labLimitValues);
+    const configToExport = {
+      version: 1,
+      type: 'lab-peripheral-limits',
+      createdBy: 'lab',
+      createdAt: new Date().toISOString(),
+      peripheralLimits: nextLimits
+    };
+
+    const json = JSON.stringify(configToExport, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'lab-peripheral-limits.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setLabExportStatus('Файл конфигурации лаборанта выгружен.');
   };
 
   const handleProgramDe10 = async () => {
@@ -289,6 +350,34 @@ function App() {
     })
     .filter(Boolean);
 
+   const sanitizePeripheralLimits = (limitsCandidate = {}) => {
+    const nextLimits = {};
+    peripherals.forEach(peripheral => {
+      const maxPins = peripheral.pins.length;
+      const raw = limitsCandidate?.[peripheral.name];
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) {
+        nextLimits[peripheral.name] = maxPins;
+        return;
+      }
+      const rounded = Math.floor(parsed);
+      nextLimits[peripheral.name] = Math.min(maxPins, Math.max(0, rounded));
+    });
+    return nextLimits;
+  };
+
+  const enforcePeripheralLimits = (connectionsToCheck, limits) => {
+    const usedByPeripheral = {};
+    return connectionsToCheck.filter(connection => {
+      const max = limits[connection.peripheral];
+      if (!Number.isInteger(max)) return true;
+      const used = usedByPeripheral[connection.peripheral] || 0;
+      if (used >= max) return false;
+      usedByPeripheral[connection.peripheral] = used + 1;
+      return true;
+    });
+  };
+
   // Load config
   const handleLoad = async () => {
     try {
@@ -331,7 +420,7 @@ function App() {
     URL.revokeObjectURL(a.href);
   };
 
-   const handleImportConnections = (event) => {
+  const handleImportConnections = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -340,11 +429,20 @@ function App() {
       try {
         const parsed = JSON.parse(reader.result);
         const importedConnections = Array.isArray(parsed.connections) ? parsed.connections : [];
+        const importedLimits = sanitizePeripheralLimits(parsed.peripheralLimits || parsed.laborantLimits || {});
+        const normalizedConnections = normalizeImportedConnections(importedConnections);
+        const limitedConnections = enforcePeripheralLimits(normalizedConnections, importedLimits);
 
-        setConnections(normalizeImportedConnections(importedConnections));
+        setPeripheralLimits(importedLimits);
+        setLabLimitValues(importedLimits);
+        setConnections(limitedConnections);
         setSelectedPeripheral(null);
         setSelectedDe10(null);
-        setSchemeStatus('Схема успешно загружена из файла');
+        if (limitedConnections.length !== normalizedConnections.length) {
+          setSchemeStatus('Схема загружена, но часть связей отключена из-за лимитов лаборанта');
+        } else {
+          setSchemeStatus('Схема и лимиты успешно загружены из файла');
+        }
       } catch (error) {
         setSchemeStatus('Ошибка загрузки схемы: неверный JSON файл');
       }
@@ -358,10 +456,24 @@ function App() {
     schemeFileInputRef.current?.click();
   };
 
+  const canUsePeripheralPin = (peripheralName, peripheralPin) => {
+    const maxAllowed = peripheralLimits[peripheralName];
+    if (!Number.isInteger(maxAllowed)) return true;
+    const isAlreadyConnected = connections.some(
+      connection => connection.peripheral === peripheralName && connection.peripheralPin === peripheralPin
+    );
+    if (isAlreadyConnected) return true;
+    const usedCount = connections.filter(connection => connection.peripheral === peripheralName).length;
+    return usedCount < maxAllowed;
+  };
 
   // ---- Board/Peripheral logic ----
 
   const onPeripheralPinSelected = (peripheralName, peripheralPin) => {
+    if (!canUsePeripheralPin(peripheralName, peripheralPin)) {
+      setSchemeStatus(`Лимит для «${peripheralName}» исчерпан. Обратитесь к лаборанту или загрузите другую схему.`);
+      return;
+    }
     if (pendingDe10Pin) {
       setConnections(prev => {
         const filtered = prev.filter(c =>
@@ -382,13 +494,21 @@ function App() {
       return;
     }
     setSelectedPeripheral({ peripheral: peripheralName, peripheralPin });
-    setSelectedDe10(null);
-    setPendingDe10Pin(null);
-    setShowPeripheralMenu(false);
+      setSelectedDe10(null);
+      setPendingDe10Pin(null);
+      setShowPeripheralMenu(false);
+      setSchemeStatus('');
   };
 
   const handleBoardPinClick = (de10Pin) => {
+    if (nonInteractivePins.includes(de10Pin)) return;
+
     if (selectedPeripheral) {
+      if (!canUsePeripheralPin(selectedPeripheral.peripheral, selectedPeripheral.peripheralPin)) {
+        setSchemeStatus(`Лимит для «${selectedPeripheral.peripheral}» исчерпан. Подключение недоступно.`);
+        setSelectedPeripheral(null);
+        return;
+      }
       setConnections(prev => {
         // remove any existing that matches peripheral+pin or de10Pin
         const filtered = prev.filter(c =>
@@ -491,10 +611,68 @@ function App() {
     );
   }
 
+  if (currentPage === '/lab') {
+    if (authUser !== 'lab') {
+      return (
+        <div className="app-container auth-page">
+          <div className="auth-card">
+            <h1>Доступ запрещён</h1>
+            <p>Для страницы лаборанта выполните вход под пользователем lab.</p>
+            <button className="compile-btn" type="button" onClick={() => navigateTo('/login')}>Перейти к входу</button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="app-container auth-page">
+        <div className="auth-card admin-card">
+          <h1>Панель лаборанта</h1>
+          <p>Укажите, сколько устройств каждого типа должно остаться доступным пользователю (можно 0).</p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {peripherals.map(peripheral => (
+              <label key={peripheral.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+                <span>{peripheral.name} (макс. {peripheral.pins.length})</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={peripheral.pins.length}
+                  value={labLimitValues[peripheral.name]}
+                  onChange={(event) => handleLabLimitChange(peripheral.name, event.target.value)}
+                  style={{ width: 100, height: 36, borderRadius: 8, border: '1px solid #7e9dcc', padding: '0 10px' }}
+                />
+              </label>
+            ))}
+          </div>
+
+          {labValidationError && <div className="auth-error">{labValidationError}</div>}
+          {labExportStatus && <div className="upload-status success">{labExportStatus}</div>}
+
+          <div className="admin-actions">
+            <button className="compile-btn" type="button" onClick={applyLabLimits}>Применить лимиты</button>
+            <button className="compile-btn" type="button" onClick={exportLabConfig}>Скачать конфиг</button>
+            <button className="control-button" type="button" onClick={() => navigateTo('/')}>На главную</button>
+            <button
+              className="control-button"
+              type="button"
+              onClick={() => {
+                setAuthUser(null);
+                navigateTo('/login');
+              }}
+            >
+              Выйти
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       <button className="admin-entry-btn" type="button" onClick={() => navigateTo('/login')}>
-        Вход для администратора
+        Вход для сотрудника
       </button>
       {/* TOP: Video — Оставлено как в оригинале */}
       <div className="video-container">
@@ -563,6 +741,8 @@ function App() {
         pinColorMap={pinColorMap}
         pinTooltipMap={pinTooltipMap}
         peripheralColorMap={peripheralColorMap}
+        nonInteractivePins={nonInteractivePins}
+        nonInteractiveColor={powerPinsHighlightColor}
         selectedDe10={selectedDe10}
         onPinClick={handleBoardPinClick}
       />
@@ -605,6 +785,7 @@ function App() {
         peripherals={peripherals}
         onSelectPeripheralPin={onPeripheralPinSelected}
         connections={connections}
+        peripheralLimits={peripheralLimits}
       />
     </div>
   );

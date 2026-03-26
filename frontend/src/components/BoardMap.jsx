@@ -19,6 +19,8 @@ export default function BoardMap({
   pinColorMap = {},
   pinTooltipMap = {},
   peripheralColorMap = {},
+  nonInteractivePins = [],
+  nonInteractiveColor = '#d81b60',
   selectedDe10 = null,
   onPinClick = () => {}
 }) {
@@ -36,26 +38,30 @@ export default function BoardMap({
   };
 
   const getPinInteractiveStyle = (pin) => {
+    const isNonInteractive = nonInteractivePins.includes(pin);
     const color = pinColorMap[pin];
     const isSelected = selectedDe10 === pin;
+    const baseColor = color || (isNonInteractive ? nonInteractiveColor : null);
 
     return {
-      color,
+      color: baseColor,
       isSelected,
-      style: color
+      isNonInteractive,
+      style: baseColor
         ? {
-            background: color,
-            color: getContrastColor(color),
-            boxShadow: `0 0 0 2px rgba(255,255,255,0.22), 0 0 16px ${color}99`
+            background: baseColor,
+            color: getContrastColor(baseColor),
+            boxShadow: `0 0 0 2px rgba(255,255,255,0.22), 0 0 16px ${baseColor}99`,
+            opacity: isNonInteractive ? 0.9 : 1
           }
         : undefined,
-      tooltip: pinTooltipMap[pin] || pin
+      tooltip: pinTooltipMap[pin] || (isNonInteractive ? `${pin} (питание/земля)` : pin)
     };
   };
 
   const renderPinButton = (pin) => {
-    const { color, isSelected, style, tooltip } = getPinInteractiveStyle(pin);
-    const className = `board-pin ${isSelected ? 'selected' : ''} ${color ? 'has-color' : ''}`;
+    const { color, isSelected, style, tooltip, isNonInteractive } = getPinInteractiveStyle(pin);
+    const className = `board-pin ${isSelected ? 'selected' : ''} ${color ? 'has-color' : ''} ${isNonInteractive ? 'non-interactive' : ''}`;
     
 
     return (
@@ -65,6 +71,7 @@ export default function BoardMap({
         onClick={() => onPinClick(pin)}
         title={tooltip}
         style={style}
+        disabled={isNonInteractive}
       >
         <span className="pin-label">{pin}</span>
       </button>
@@ -78,11 +85,12 @@ export default function BoardMap({
 
   const renderHeaderPin = (pin, compact = false) => {
     if (!pin) return <div className="header-pin-empty" aria-hidden="true" />;
-    const { color, isSelected, style, tooltip } = getPinInteractiveStyle(pin);
+    const { color, isSelected, style, tooltip, isNonInteractive } = getPinInteractiveStyle(pin);
     const className = [
       compact ? 'header-pin-dot compact' : 'header-pin-dot',
       color ? 'has-color' : '',
-      isSelected ? 'selected' : ''
+      isSelected ? 'selected' : '',
+      isNonInteractive ? 'non-interactive' : ''
     ].join(' ');
 
     return (
@@ -96,6 +104,7 @@ export default function BoardMap({
         title={tooltip}
         style={style}
         aria-label={`Пин ${pin}`}
+        disabled={isNonInteractive}
       >
         {!compact && <span>{pin}</span>}
       </button>

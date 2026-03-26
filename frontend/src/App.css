@@ -1048,6 +1048,10 @@
   box-shadow: 0 0 0 2px rgba(255,212,79,0.7);
 }
 
+.header-pin-dot.non-interactive {
+  cursor: not-allowed;
+}
+
 .header-focus-panel {
   width: 100%;
   max-width: 680px;
@@ -1129,6 +1133,11 @@
 .board-pin.selected {
   transform: translateY(-4px);
   outline: 3px solid rgba(255,202,40,0.22);
+}
+
+.board-pin.non-interactive {
+  cursor: not-allowed;
+  border: 1px solid rgba(255,255,255,0.4);
 }
 
 /* если пин свободен, используем спокойный стиль */
